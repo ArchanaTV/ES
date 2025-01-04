@@ -1,0 +1,26 @@
+ORG 00H               
+MOV P2, #00H         
+MOV A, #00H           
+MOV R0, #00H          
+UPWARD:
+    INC A             
+    MOV P2, A         
+    ACALL DELAY       
+    CJNE A, #0FFH, UPWARD 
+DOWNWARD:
+    DEC A             
+    MOV P2, A         
+    ACALL DELAY       
+    CJNE A, #00H, DOWNWARD 
+SJMP UPWARD           
+
+
+DELAY:
+    MOV R1, #255      
+DELAY_LOOP1:
+    MOV R2, #255      
+DELAY_LOOP2:
+    DJNZ R2, DELAY_LOOP2 
+    DJNZ R1, DELAY_LOOP1 
+    RET               
+END
