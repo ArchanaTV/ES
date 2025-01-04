@@ -1,0 +1,120 @@
+ORG 0000H           
+MOV R7, #00H         
+MOV R6, #00H         
+MOV R5, #00H         
+
+ACALL INIT_LCD       
+
+MAIN_LOOP:
+    ACALL UPDATE_LCD       
+    ACALL DELAY_1_SEC     
+    ACALL INCREMENT_TIME   
+    SJMP MAIN_LOOP        
+
+INIT_LCD:
+    MOV A, #38H
+    ACALL CMD_WRITE       
+    ACALL DELAY_SHORT
+    
+    MOV A, #0CH
+    ACALL CMD_WRITE       
+    ACALL DELAY_SHORT
+    
+    MOV A, #06H
+    ACALL CMD_WRITE        
+    ACALL DELAY_SHORT
+    
+    MOV A, #01H
+    ACALL CMD_WRITE        
+    ACALL DELAY_SHORT
+    RET
+
+INCREMENT_TIME:
+    INC R5                
+    CJNE R5, #60, DONE_SEC 
+    MOV R5, #00H          
+    INC R6               
+    CJNE R6, #60, DONE_SEC 
+    MOV R6, #00H         
+    INC R7                
+    CJNE R7, #24, DONE_SEC
+    MOV R7, #00H          
+DONE_SEC:
+    RET
+
+UPDATE_LCD:
+    MOV A, #80H
+    ACALL CMD_WRITE       
+    
+    MOV A, R7             
+    ACALL DISPLAY_TWO_DIGIT 
+    
+    ACALL DISPLAY_COLON    
+    
+    MOV A, R6            
+    ACALL DISPLAY_TWO_DIGIT 
+    
+    ACALL DISPLAY_COLON    
+    
+    MOV A, R5            
+    ACALL DISPLAY_TWO_DIGIT
+    RET
+
+DISPLAY_TWO_DIGIT:
+    MOV B, #10            
+    DIV AB                
+    
+    ADD A, #30H          
+    ACALL DISPLAY_CHAR    
+    
+    MOV A, B             
+    ADD A, #30H           
+    ACALL DISPLAY_CHAR   
+    RET
+
+; Subroutine to display colon ':' on the LCD
+DISPLAY_COLON:
+    MOV A, #3AH           
+    ACALL DISPLAY_CHAR    
+    RET
+
+; Subroutine to display a character on the LCD
+DISPLAY_CHAR:
+    MOV P2, A             
+    SETB P3.2            
+    CLR P3.3              
+    SETB P3.4             ; Set E to 1 (Enable high)
+    NOP                   ; Small delay
+    CLR P3.4              ; Set E to 0 (Enable low)
+    ACALL DELAY_SHORT     ; Short delay after sending character
+    RET
+
+; Subroutine to write command to the LCD
+CMD_WRITE:
+    MOV P2, A             ; Send command to data pins (P2 connected to D0-D7 of LCD)
+    CLR P3.2              ; Set RS to 0 (command register)
+    CLR P3.3              ; Set RW to 0 (write mode)
+    SETB P3.4             ; Set E to 1 (Enable high)
+    NOP                   ; Small delay
+    CLR P3.4              ; Set E to 0 (Enable low)
+    ACALL DELAY_SHORT     ; Short delay after sending command
+    RET
+
+; Short delay for LCD commands and data
+DELAY_SHORT:
+    MOV R0, #250          ; Adjust this value for a short delay
+DELAY_SHORT_LOOP:
+    DJNZ R0, DELAY_SHORT_LOOP
+    RET
+
+; Subroutine for 1-second delay
+DELAY_1_SEC:
+    MOV R3, #50           ; Outer loop for delay
+DELAY_LOOP:
+    MOV R4, #255          ; Inner loop for delay
+DELAY_LOOP_INNER:
+    DJNZ R4, DELAY_LOOP_INNER
+    DJNZ R3, DELAY_LOOP
+    RET
+
+END
