@@ -1,0 +1,119 @@
+; Define LCD control pins
+RS      EQU P2.0    ; Register Select
+RW      EQU P2.1    ; Read/Write
+EN      EQU P2.2    ; Enable
+
+; Define ADC control pins
+RD      EQU P3.0    ; ADC Read
+WR      EQU P3.1    ; ADC Write
+INTR    EQU P3.2    ; ADC Interrupt
+CS      EQU P3.3    ; ADC Chip Select
+
+; Start of code
+ORG 0000H
+AJMP MAIN          ; Jump to main program
+
+; Delay subroutine
+DELAY:
+    MOV R2, #255   ; Outer loop
+DLOOP1:
+    MOV R1, #255   ; Inner loop
+DLOOP2:
+    DJNZ R1, DLOOP2
+    DJNZ R2, DLOOP1
+    RET
+
+; LCD Command subroutine
+LCD_CMD:
+    MOV P0, A      ; Move command into P0 (LCD data port)
+    CLR RS         ; Select command mode
+    CLR RW         ; Select write mode
+    SETB EN        ; Enable high
+    ACALL DELAY    ; Small delay
+    CLR EN         ; Enable low
+    RET
+
+; LCD Data subroutine
+LCD_DATA:
+    MOV P0, A      ; Move data into P0 (LCD data port)
+    SETB RS        ; Select data mode
+    CLR RW         ; Select write mode
+    SETB EN        ; Enable high
+    ACALL DELAY    ; Small delay
+    CLR EN         ; Enable low
+    RET
+
+; LCD Initialization
+LCD_INIT:
+    MOV A, #38H    ; Function set: 2 lines, 5x7 matrix
+    ACALL LCD_CMD
+    MOV A, #0CH    ; Display ON, Cursor OFF
+    ACALL LCD_CMD
+    MOV A, #06H    ; Entry mode set: increment cursor
+    ACALL LCD_CMD
+    MOV A, #01H    ; Clear display
+    ACALL LCD_CMD
+    ACALL DELAY    ; Delay for LCD to stabilize
+    RET
+
+; Display String subroutine
+LCD_STRING:
+    MOV R0, #STR   ; Load address of the string into R0
+STR_LOOP:
+    MOV A, @R0     ; Get character from memory
+    JZ END_STR     ; If zero, end of string
+    ACALL LCD_DATA ; Send character to LCD
+    INC R0         ; Point to next character
+    SJMP STR_LOOP  ; Repeat
+END_STR:
+    RET
+
+; Read ADC subroutine
+READ_ADC:
+    CLR WR         ; Start conversion
+    ACALL DELAY
+    SETB WR        ; Stop conversion
+WAIT_INTR:
+    JB INTR, WAIT_INTR ; Wait for conversion to complete
+    CLR RD         ; Enable read
+    ACALL DELAY
+    MOV A, P1      ; Read ADC data from Port 1
+    SETB RD        ; Disable read
+    RET
+
+; Main program
+MAIN:
+    ACALL LCD_INIT ; Initialize LCD
+    CLR CS         ; Enable ADC chip select
+
+MAIN_LOOP:
+    ACALL READ_ADC ; Read ADC value
+    MOV B, #5      ; Prepare to multiply ADC value
+    MUL AB         ; A = A * 5
+    MOV R7, A      ; Save result in R7 (MSB)
+    MOV A, B       ; A = 5 * (ADC_value mod 256)
+    MOV B, #100    ; Divide by 100 for temperature conversion
+    DIV AB         ; A = integer part, B = fractional part
+
+    MOV A, #80H    ; Move cursor to the first line
+    ACALL LCD_CMD
+    MOV R0, #TEMP_MSG ; Display "Temp: "
+    ACALL LCD_STRING
+
+    MOV A, R7      ; Display temperature integer part
+    ACALL LCD_DATA
+    MOV A, #2EH    ; Display decimal point
+    ACALL LCD_DATA
+    MOV A, B       ; Display temperature fractional part
+    ACALL LCD_DATA
+
+    ACALL DELAY    ; Delay for 1 second
+    SJMP MAIN_LOOP ; Repeat
+
+; Data section
+TEMP_MSG:
+    DB 'Temp: ', 0  ; Null-terminated string
+END
+
+END
+
